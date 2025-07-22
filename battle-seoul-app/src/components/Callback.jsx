@@ -1,69 +1,104 @@
-// src/components/Callback.jsx
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+// 3. 개선된 Callback.jsx
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthService } from "../services/authService";
+import { Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 
 const Callback = () => {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+  const [status, setStatus] = useState("처리 중...");
 
-    useEffect(() => {
-        const CLIENT_ID = '254d6b7f190543e78da436cd3287a60e';
-        const REDIRECT_URI = 'http://127.0.0.1:5173/callback';
+  useEffect(() => {
+    const handleSpotifyCallback = async () => {
+      const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+      const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
 
-        const getAccessToken = async (code) => {
-            const verifier = sessionStorage.getItem('verifier');
+      try {
+        // URL에서 code 파라미터 가져오기
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get("code");
 
-            const params = new URLSearchParams();
-            params.append('client_id', CLIENT_ID);
-            params.append('grant_type', 'authorization_code');
-            params.append('code', code);
-            params.append('redirect_uri', REDIRECT_URI);
-            params.append('code_verifier', verifier);
+        if (!code) {
+          throw new Error("인증 코드가 없습니다.");
+        }
 
-            const response = await fetch('https://accounts.spotify.com/api/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: params,
-            });
+        setStatus("Spotify 토큰 받아오는 중...");
 
-            const data = await response.json();
-            return data.access_token;
-        };
+        // Access Token 받기
+        const verifier = sessionStorage.getItem("verifier");
+        const params = new URLSearchParams();
+        params.append("client_id", CLIENT_ID);
+        params.append("grant_type", "authorization_code");
+        params.append("code", code);
+        params.append("redirect_uri", REDIRECT_URI);
+        params.append("code_verifier", verifier);
 
-        const fetchProfile = async (token) => {
-            const response = await fetch('https://api.spotify.com/v1/me', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            return await response.json();
-        };
+        const tokenResponse = await fetch(
+          "https://accounts.spotify.com/api/token",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: params,
+          }
+        );
 
-        const run = async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
+        const tokenData = await tokenResponse.json();
 
-            if (!code) return;
+        if (!tokenData.access_token) {
+          throw new Error("액세스 토큰을 받지 못했습니다.");
+        }
 
-            const token = await getAccessToken(code);
-            if (!token) return;
+        setStatus("Spotify 프로필 가져오는 중...");
 
-            const profile = await fetchProfile(token);
+        // Spotify 프로필 가져오기
+        const profileResponse = await fetch("https://api.spotify.com/v1/me", {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        });
 
-            // 저장 후 register로 이동
-            sessionStorage.setItem('spotifyAccessToken', token);
-            sessionStorage.setItem('spotifyProfile', JSON.stringify(profile));
+        const spotifyProfile = await profileResponse.json();
 
-            navigate('/register');
-        };
+        // 세션에 저장
+        sessionStorage.setItem("spotifyAccessToken", tokenData.access_token);
+        sessionStorage.setItem(
+          "spotifyProfile",
+          JSON.stringify(spotifyProfile)
+        );
 
-        run();
-    }, [navigate]);
+        setStatus("Firebase에서 사용자 확인 중...");
 
-    return (
-        <div className="text-white text-center py-20">
-            Spotify 로그인 처리 중...
-        </div>
-    );
+        // Firebase에서 사용자 확인
+        const loginResult = await AuthService.loginWithSpotify(spotifyProfile);
+
+        if (loginResult.needsRegistration) {
+          // 회원가입이 필요한 경우
+          toast.info("회원가입이 필요합니다.");
+          navigate("/register");
+        } else if (loginResult.success) {
+          // 로그인 성공
+          toast.success("로그인 성공!");
+          navigate("/");
+        }
+      } catch (error) {
+        console.error("Spotify callback error:", error);
+        toast.error("로그인 처리 중 오류가 발생했습니다.");
+        navigate("/login");
+      }
+    };
+
+    handleSpotifyCallback();
+  }, [navigate]);
+
+  return (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="w-12 h-12 text-pink-500 animate-spin mx-auto mb-4" />
+        <p className="text-white text-lg">{status}</p>
+      </div>
+    </div>
+  );
 };
 
 export default Callback;
