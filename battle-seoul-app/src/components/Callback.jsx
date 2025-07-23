@@ -1,94 +1,69 @@
-// 3. 개선된 Callback.jsx
+// src/components/Callback.jsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthService } from "../services/authService";
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { handleSpotifyAuth } from "../services/authService";
 
 const Callback = () => {
   const navigate = useNavigate();
   const [status, setStatus] = useState("처리 중...");
 
   useEffect(() => {
-    const handleSpotifyCallback = async () => {
-      const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-      const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
-
+    const processSpotifyCallback = async () => {
       try {
-        // URL에서 code 파라미터 가져오기
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get("code");
 
-        if (!code) {
-          throw new Error("인증 코드가 없습니다.");
-        }
+        if (!code) throw new Error("인증 코드가 없습니다.");
 
-        setStatus("Spotify 토큰 받아오는 중...");
-
-        // Access Token 받기
-        const verifier = sessionStorage.getItem("verifier");
-        const params = new URLSearchParams();
-        params.append("client_id", CLIENT_ID);
-        params.append("grant_type", "authorization_code");
-        params.append("code", code);
-        params.append("redirect_uri", REDIRECT_URI);
-        params.append("code_verifier", verifier);
-
+        setStatus("Spotify 토큰 인증 중...");
+        // 실제 서비스에서는 이 URL을 백엔드 엔드포인트로 변경해야 합니다.
         const tokenResponse = await fetch(
-          "https://accounts.spotify.com/api/token",
+          "YOUR_BACKEND_ENDPOINT_FOR_SPOTIFY_TOKEN",
           {
             method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: params,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code }),
           }
         );
-
         const tokenData = await tokenResponse.json();
+        if (!tokenData.access_token)
+          throw new Error("액세스 토큰 발급에 실패했습니다.");
 
-        if (!tokenData.access_token) {
-          throw new Error("액세스 토큰을 받지 못했습니다.");
-        }
-
-        setStatus("Spotify 프로필 가져오는 중...");
-
-        // Spotify 프로필 가져오기
+        setStatus("Spotify 프로필 정보 가져오는 중...");
         const profileResponse = await fetch("https://api.spotify.com/v1/me", {
-          headers: {
-            Authorization: `Bearer ${tokenData.access_token}`,
-          },
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
-
         const spotifyProfile = await profileResponse.json();
 
-        // 세션에 저장
         sessionStorage.setItem("spotifyAccessToken", tokenData.access_token);
         sessionStorage.setItem(
           "spotifyProfile",
           JSON.stringify(spotifyProfile)
         );
 
-        setStatus("Firebase에서 사용자 확인 중...");
+        setStatus("사용자 정보 확인 중...");
+        const result = await handleSpotifyAuth(spotifyProfile);
 
-        // Firebase에서 사용자 확인
-        const loginResult = await AuthService.loginWithSpotify(spotifyProfile);
-
-        if (loginResult.needsRegistration) {
-          // 회원가입이 필요한 경우
-          toast.info("회원가입이 필요합니다.");
+        if (result.needsRegistration) {
+          toast.success("추가 정보를 입력하여 회원가입을 완료해주세요.");
           navigate("/register");
-        } else if (loginResult.success) {
-          // 로그인 성공
-          toast.success("로그인 성공!");
+        } else if (result.success) {
+          toast.success("로그인 되었습니다!");
           navigate("/");
+        } else {
+          throw new Error("사용자 인증에 실패했습니다.");
         }
       } catch (error) {
         console.error("Spotify callback error:", error);
-        toast.error("로그인 처리 중 오류가 발생했습니다.");
+        toast.error("Spotify 로그인 처리 중 오류가 발생했습니다.");
         navigate("/login");
       }
     };
 
-    handleSpotifyCallback();
+    processSpotifyCallback();
   }, [navigate]);
 
   return (

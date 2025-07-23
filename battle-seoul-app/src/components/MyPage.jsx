@@ -13,7 +13,7 @@ import {
   Camera,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { getUserStats, updateProfile } from "../services/userService";
+import { getUserStats, updateProfile } from "../services/userService.js";
 
 const MyPage = () => {
   const { user } = useAuth();
