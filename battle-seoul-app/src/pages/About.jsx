@@ -23,7 +23,7 @@ const Mayor = () => (
     <div className="bg-gray-800/50 rounded-2xl p-8">
       <div className="flex items-center gap-6">
         <img
-          src="/mayor-image.jpg"
+          src="/images/default.jpg"
           alt="Mayor"
           className="w-48 h-48 rounded-lg object-cover"
         />

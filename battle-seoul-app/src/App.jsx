@@ -1,5 +1,3 @@
-// src/App.jsx
-
 import React, { useState } from "react";
 import {
   BrowserRouter as Router,
@@ -12,17 +10,19 @@ import { Toaster } from "react-hot-toast";
 import toast from "react-hot-toast";
 
 import Header from "./components/Header";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import Callback from "./components/Callback";
+import MyPage from "./components/MyPage";
 import BattleList from "./components/BattleList";
 import BattleDetail from "./components/BattleDetail";
 import ContentUpload from "./components/ContentUpload";
-import Login from "./components/Login";
-import Register from "./components/Register";
-import MyPage from "./components/MyPage";
-import Callback from "./components/Callback";
+
 import About from "./pages/About";
 import CultureMagazine from "./pages/CultureMagazine";
 import Entertainment from "./pages/Entertainment";
 import NotFound from "./pages/NotFound";
+import CreateBattlePage from "./pages/CreateBattlePage"; // 새로 만든 페이지 import
 
 import { logout, loginOrRegisterWithGoogle } from "./services/authService";
 import { useAuth } from "./hooks/useAuth";
@@ -69,11 +69,8 @@ function MainApp() {
   };
 
   const handleSpotifyLogin = () => {
-    // Spotify PKCE 인증 흐름 시작
-    // 실제 구현시에는 verifier, challenge 생성 로직이 필요합니다.
     console.log("Spotify login initiated");
     toast("Spotify 로그인 기능은 현재 개발 중입니다.");
-    // window.location.href = `YOUR_SPOTIFY_AUTH_URL`;
   };
 
   if (loading) {
@@ -85,7 +82,7 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-gray-900 text-gray-200">
       <Header
         user={user}
         onLogout={handleLogout}
@@ -93,33 +90,51 @@ function MainApp() {
         onNavigate={navigate}
       />
 
-      <Routes>
-        <Route path="/" element={<BattleList />} />
-        <Route path="/battle/:id" element={<BattleDetail />} />
-        <Route
-          path="/login"
-          element={
-            <Login
-              onGoogleLogin={handleGoogleLogin}
-              onSpotifyLogin={handleSpotifyLogin}
-            />
-          }
-        />
-        <Route path="/register" element={<Register />} />
-        <Route path="/callback" element={<Callback />} />
-        <Route
-          path="/mypage"
-          element={user ? <MyPage /> : <Navigate to="/login" />}
-        />
-        <Route path="/about/*" element={<About />} />
-        <Route path="/magazine/*" element={<CultureMagazine />} />
-        <Route path="/entertainment/*" element={<Entertainment />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      {/* 헤더의 높이가 64px(h-16)이므로, 콘텐츠 영역이 헤더에 가려지지 않도록 패딩을 줍니다. */}
+      <main className="pt-16">
+        <Routes>
+          <Route path="/" element={<BattleList />} />
+          <Route
+            path="/login"
+            element={
+              <Login
+                onGoogleLogin={handleGoogleLogin}
+                onSpotifyLogin={handleSpotifyLogin}
+              />
+            }
+          />
+          <Route path="/register" element={<Register />} />
+          <Route path="/callback" element={<Callback />} />
+
+          {/* 로그인한 사용자만 접근 가능한 보호된 라우트들 */}
+          <Route
+            path="/mypage"
+            element={user ? <MyPage /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/create-battle"
+            element={user ? <CreateBattlePage /> : <Navigate to="/login" />}
+          />
+
+          <Route path="/battle/:id" element={<BattleDetail />} />
+          <Route path="/about/*" element={<About />} />
+          <Route path="/magazine/*" element={<CultureMagazine />} />
+          <Route path="/entertainment/*" element={<Entertainment />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
 
       {showUpload && <ContentUpload onClose={() => setShowUpload(false)} />}
 
-      <Toaster position="top-center" />
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          style: {
+            background: "#333",
+            color: "#fff",
+          },
+        }}
+      />
     </div>
   );
 }

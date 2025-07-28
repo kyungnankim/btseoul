@@ -8,7 +8,7 @@ import { Music } from "lucide-react";
 // authService에서 이메일 로그인 함수를 import 합니다.
 import { loginWithEmail } from "../services/authService";
 
-const Login = ({ onSpotifyLogin, onGoogleLogin }) => {
+const Login = ({ onGoogleLogin }) => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,6 +41,60 @@ const Login = ({ onSpotifyLogin, onGoogleLogin }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Spotify 로그인 함수 (작동하는 버전 기반)
+  const handleSpotifyLogin = () => {
+    const CLIENT_ID = "254d6b7f190543e78da436cd3287a60e"; // 작동하는 CLIENT_ID 사용
+    const REDIRECT_URI = "http://127.0.0.1:5173/callback";
+
+    // PKCE를 위한 code verifier 생성
+    const generateCodeVerifier = (length) => {
+      let text = "";
+      const possible =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+      for (let i = 0; i < length; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+      }
+      return text;
+    };
+
+    const generateCodeChallenge = async (codeVerifier) => {
+      const data = new TextEncoder().encode(codeVerifier);
+      const digest = await window.crypto.subtle.digest("SHA-256", data);
+      return btoa(String.fromCharCode.apply(null, [...new Uint8Array(digest)]))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    };
+
+    const initiateSpotifyLogin = async () => {
+      const codeVerifier = generateCodeVerifier(128);
+      const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+      // verifier를 세션에 저장
+      sessionStorage.setItem("verifier", codeVerifier);
+
+      const scope = "user-read-private user-read-email";
+
+      const authUrl = new URL("https://accounts.spotify.com/authorize");
+      authUrl.searchParams.append("client_id", CLIENT_ID);
+      authUrl.searchParams.append("response_type", "code");
+      authUrl.searchParams.append("redirect_uri", REDIRECT_URI);
+      authUrl.searchParams.append("scope", scope);
+      authUrl.searchParams.append("code_challenge_method", "S256");
+      authUrl.searchParams.append("code_challenge", codeChallenge);
+
+      // Spotify 로그인 페이지로 리다이렉트
+      window.location.href = authUrl.toString();
+    };
+
+    // 비동기 함수 실행
+    initiateSpotifyLogin().catch((error) => {
+      console.error("Spotify login initiation error:", error);
+      toast.error("Spotify 로그인 시작 중 오류가 발생했습니다.");
+    });
   };
 
   return (
@@ -93,21 +147,23 @@ const Login = ({ onSpotifyLogin, onGoogleLogin }) => {
         {/* 소셜 로그인 버튼 */}
         <div className="space-y-4">
           <button
-            onClick={onSpotifyLogin}
+            onClick={handleSpotifyLogin}
             className="w-full inline-flex justify-center items-center gap-3 px-6 py-3 bg-[#1DB954] text-white font-bold rounded-lg hover:bg-[#1ED760] transition-colors"
           >
             <Music className="w-5 h-5" />
             Spotify로 계속하기
           </button>
 
-          <button
-            onClick={onGoogleLogin}
-            className="w-full inline-flex justify-center items-center gap-3 px-6 py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            {/* public 폴더에 로고 파일이 있어야 합니다 */}
-            <img src="/google-logo.svg" alt="Google" className="w-5 h-5" />
-            Google로 계속하기
-          </button>
+          {onGoogleLogin && (
+            <button
+              onClick={onGoogleLogin}
+              className="w-full inline-flex justify-center items-center gap-3 px-6 py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              {/* public 폴더에 로고 파일이 있어야 합니다 */}
+              <img src="/google-logo.svg" alt="Google" className="w-5 h-5" />
+              Google로 계속하기
+            </button>
+          )}
         </div>
 
         {/* 회원가입 페이지 링크 */}
